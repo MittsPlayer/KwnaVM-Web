@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#101418">
+<title>KwnaVM Web</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg">
+<style>
+:root{--bg:#101418;--panel:#1a2027;--line:#2b343e;--fg:#e6edf3;--mut:#8b98a5;--ac:#6ee7b7;--bad:#ff7b7b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.45 system-ui,sans-serif;padding:env(safe-area-inset-top) 12px env(safe-area-inset-bottom)}
+main{max-width:760px;margin:0 auto;padding:12px 0 40px}
+h1{font-size:1.25rem;margin:4px 0 12px}
+#screen{background:#000;border:1px solid var(--line);border-radius:8px;overflow:auto;min-height:180px;display:flex;justify-content:center}
+#screen canvas{max-width:100%;height:auto!important;image-rendering:pixelated}
+#screen div{white-space:pre;font:14px monospace;color:#cfe}
+section{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px;margin-top:12px}
+h2{font-size:1rem;margin:0 0 8px}
+label{display:block;margin:10px 0 4px;color:var(--mut);font-size:.9rem}
+input[type=file],input[type=text],select{width:100%;padding:10px;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:6px;font:inherit}
+input[type=range]{width:100%;accent-color:var(--ac)}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+button{flex:1 1 auto;min-height:44px;padding:8px 14px;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:6px;font:inherit;cursor:pointer}
+button.go{background:var(--ac);color:#06241a;border-color:var(--ac);font-weight:700}
+button:disabled{opacity:.4}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+output{color:var(--ac);font-weight:600}
+#msg{min-height:1.4em;color:var(--mut);font-size:.9rem;margin-top:8px}
+#msg.err{color:var(--bad)}
+#keys button{flex:0 0 auto;min-width:52px;min-height:40px;padding:4px 10px}
+.hint{color:var(--mut);font-size:.85rem;margin:6px 0 0}
+</style>
+</head>
+<body>
+<main>
+<h1>KwnaVM Web</h1>
+<div id="screen"><div></div><canvas></canvas></div>
+<div id="msg" role="status"></div>
+
+<section id="setup">
+  <h2>Configuração</h2>
+  <label for="iso">Imagem de boot (ISO, IMG ou disquete)</label>
+  <input type="file" id="iso" accept=".iso,.img,.ima,.flp,.bin">
+  <p class="hint">O arquivo fica no seu aparelho e não é enviado para lugar nenhum. Só funcionam sistemas de 32 bits (x86).</p>
+
+  <label for="ram">Memória RAM: <output id="ramv">256 MB</output></label>
+  <input type="range" id="ram" min="16" max="1024" step="16" value="256">
+
+  <label for="vram">Memória de vídeo</label>
+  <select id="vram"><option value="2">2 MB</option><option value="8" selected>8 MB</option><option value="16">16 MB</option><option value="32">32 MB</option></select>
+
+  <label for="disk">Disco rígido virtual: <output id="diskv">512 MB</output> (0 = sem disco)</label>
+  <input type="range" id="disk" min="0" max="2048" step="64" value="512">
+
+  <label for="hd">Ou carregar um disco salvo antes (opcional)</label>
+  <input type="file" id="hd" accept=".img,.bin,.raw,.hd">
+
+  <div class="row">
+    <button class="go" id="start">Iniciar</button>
+    <button id="stop" disabled>Parar</button>
+  </div>
+</section>
+
+<section id="ctl" hidden>
+  <h2>Controles</h2>
+  <div class="row">
+    <button id="reset">Reiniciar</button>
+    <button id="full">Tela cheia</button>
+    <button id="saveState">Salvar estado</button>
+    <button id="loadState">Restaurar estado</button>
+    <button id="saveDisk">Baixar disco</button>
+  </div>
+  <label for="txt">Digitar texto no sistema</label>
+  <input type="text" id="txt" autocomplete="off" autocapitalize="off" placeholder="Escreva e toque em Enviar">
+  <div class="row"><button id="send">Enviar</button><button id="sendEnter">Enviar + Enter</button></div>
+  <label>Teclas especiais</label>
+  <div class="row" id="keys"></div>
+</section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const CDN = "https://cdn.jsdelivr.net/npm/v86@latest/build/";
+const BIOS_CDN = "https://cdn.jsdelivr.net/gh/copy/v86@master/bios/";
+let emu = null, diskBuf = null, savedState = null;
+
+function msg(t, err){ const m=$("msg"); m.textContent=t; m.className=err?"err":""; }
+const mb = n => n >= 1024 ? (n/1024)+" GB" : n+" MB";
+$("ram").oninput = e => $("ramv").textContent = mb(+e.target.value);
+$("disk").oninput = e => $("diskv").textContent = +e.target.value ? mb(+e.target.value) : "nenhum";
+
+async function exists(u){ try{ const r=await fetch(u,{method:"HEAD"}); return r.ok; }catch(e){ return false; } }
+async function pick(local, remote){ return (await exists(local)) ? local : remote; }
+function loadScript(src){ return new Promise((ok,no)=>{ const s=document.createElement("script"); s.src=src; s.onload=ok; s.onerror=()=>no(); document.head.appendChild(s); }); }
+
+async function ensureLib(){
+  if (window.V86) return;
+  msg("Carregando o motor de emulação…");
+  try { await loadScript("lib/libv86.js"); }
+  catch(e){ await loadScript(CDN+"libv86.js"); }
+}
+
+async function start(){
+  const iso = $("iso").files[0], hd = $("hd").files[0];
+  if (!iso && !hd) return msg("Escolha uma imagem de boot ou um disco salvo.", true);
+  if (iso && /(x86[_-]?64|amd64|64[-_ ]?bit|[-_.]64\b)/i.test(iso.name) &&
+      !confirm("O nome sugere um sistema de 64 bits. O motor só emula 32 bits e ele provavelmente não vai iniciar. Tentar mesmo assim?")) return;
+
+  $("start").disabled = true;
+  try {
+    await ensureLib();
+    const wasm = await pick("lib/v86.wasm", CDN+"v86.wasm");
+    const bios = await pick("bios/seabios.bin", BIOS_CDN+"seabios.bin");
+    const vga  = await pick("bios/vgabios.bin", BIOS_CDN+"vgabios.bin");
+
+    const o = {
+      wasm_path: wasm,
+      memory_size: +$("ram").value * 1048576,
+      vga_memory_size: +$("vram").value * 1048576,
+      screen_container: $("screen"),
+      bios: {url: bios}, vga_bios: {url: vga},
+      autostart: true
+    };
+    if (iso) {
+      const small = iso.size <= 2949120 && !/\.iso$/i.test(iso.name);
+      if (small) o.fda = {buffer: iso};
+      else { o.cdrom = {buffer: iso}; o.boot_order = 0x213; }
+    }
+    diskBuf = null;
+    if (hd) o.hda = {buffer: hd};
+    else if (+$("disk").value > 0) {
+      try { diskBuf = new ArrayBuffer(+$("disk").value * 1048576); o.hda = {buffer: diskBuf}; }
+      catch(e){ return msg("Sem memória para um disco desse tamanho. Reduza o disco ou a RAM.", true); }
+    }
+    if (emu) { try{ await emu.destroy(); }catch(e){} }
+    msg("Iniciando…");
+    emu = new V86(o);
+    emu.add_listener("emulator-started", () => msg("Em execução. Toque na tela para dar foco."));
+    $("stop").disabled = false; $("ctl").hidden = false;
+    $("screen").scrollIntoView({behavior:"smooth"});
+  } catch(e){
+    console.error(e);
+    msg("Não foi possível iniciar. Verifique a conexão ou reduza a RAM.", true);
+  } finally { $("start").disabled = false; }
+}
+
+async function stop(){
+  if (emu) { try{ await emu.destroy(); }catch(e){} emu = null; }
+  $("stop").disabled = true; $("ctl").hidden = true; msg("Parado.");
+}
+
+function down(name,blob){ const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),5000); }
+
+$("start").onclick = start;
+$("stop").onclick = stop;
+$("reset").onclick = () => emu && emu.restart();
+$("full").onclick = () => { const s=$("screen"); (s.requestFullscreen||s.webkitRequestFullscreen).call(s); };
+$("saveState").onclick = async () => { if(!emu) return; savedState = await emu.save_state(); msg("Estado salvo na memória (some ao fechar a página)."); };
+$("loadState").onclick = async () => { if(emu && savedState){ await emu.restore_state(savedState); msg("Estado restaurado."); } else msg("Nenhum estado salvo ainda.", true); };
+$("saveDisk").onclick = () => diskBuf ? down("disco.img", new Blob([diskBuf])) : msg("Este disco não pode ser baixado.", true);
+
+const send = (enter) => { if(!emu) return; const t=$("txt").value + (enter?"\n":""); if(emu.keyboard_send_text) emu.keyboard_send_text(t); $("txt").value=""; };
+$("send").onclick = () => send(false);
+$("sendEnter").onclick = () => send(true);
+
+// Teclas especiais (scancodes set 1; prefixo 0xE0 = tecla estendida)
+const K = {Esc:[0x01],Tab:[0x0f],Enter:[0x1c],Espaço:[0x39],Apagar:[0x0e],"↑":[0xe0,0x48],"↓":[0xe0,0x50],"←":[0xe0,0x4b],"→":[0xe0,0x4d],Del:[0xe0,0x53],F2:[0x3c],F10:[0x44],F12:[0x58]};
+function tap(codes){ const ext=codes.length>1?[0xe0]:[]; const c=codes[codes.length-1];
+  return [...ext,c,...ext,c|0x80]; }
+const kb = $("keys");
+Object.entries(K).forEach(([n,c])=>{ const b=document.createElement("button"); b.textContent=n; b.onclick=()=>emu&&emu.keyboard_send_scancodes(tap(c)); kb.appendChild(b); });
+const cad=document.createElement("button"); cad.textContent="Ctrl+Alt+Del";
+cad.onclick=()=>emu&&emu.keyboard_send_scancodes([0x1d,0x38,0xe0,0x53,0xe0,0xd3,0xb8,0x9d]); kb.appendChild(cad);
+
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});
+</script>
+</body>
+</html>
