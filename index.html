@@ -8,173 +8,213 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.svg">
 <style>
-:root{--bg:#101418;--panel:#1a2027;--line:#2b343e;--fg:#e6edf3;--mut:#8b98a5;--ac:#6ee7b7;--bad:#ff7b7b}
-*{box-sizing:border-box}
+:root{--bg:#101418;--panel:#1a2027;--line:#2b343e;--fg:#e6edf3;--mut:#8b98a5;--ac:#6ee7b7;--bad:#ff7b7b;--be1:#ddd7c5;--be2:#c3bca7;--be3:#a39c86}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.45 system-ui,sans-serif;padding:env(safe-area-inset-top) 12px env(safe-area-inset-bottom)}
-main{max-width:760px;margin:0 auto;padding:12px 0 40px}
+main{max-width:900px;margin:0 auto;padding:12px 0 40px}
 h1{font-size:1.25rem;margin:4px 0 12px}
-#screen{background:#000;border:1px solid var(--line);border-radius:8px;overflow:auto;min-height:180px;display:flex;justify-content:center}
-#screen canvas{max-width:100%;height:auto!important;image-rendering:pixelated}
-#screen div{white-space:pre;font:14px monospace;color:#cfe}
 section{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px;margin-top:12px}
 h2{font-size:1rem;margin:0 0 8px}
 label{display:block;margin:10px 0 4px;color:var(--mut);font-size:.9rem}
-input[type=file],input[type=text],select{width:100%;padding:10px;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:6px;font:inherit}
+input[type=file],select{width:100%;padding:10px;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:6px;font:inherit}
 input[type=range]{width:100%;accent-color:var(--ac)}
 .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
-button{flex:1 1 auto;min-height:44px;padding:8px 14px;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:6px;font:inherit;cursor:pointer}
-button.go{background:var(--ac);color:#06241a;border-color:var(--ac);font-weight:700}
-button:disabled{opacity:.4}
-button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+.row button{flex:1 1 auto;min-height:44px;padding:8px 14px;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:6px;font:inherit;cursor:pointer}
+.row button.go{background:var(--ac);color:#06241a;border-color:var(--ac);font-weight:700}
 output{color:var(--ac);font-weight:600}
-#msg{min-height:1.4em;color:var(--mut);font-size:.9rem;margin-top:8px}
+#msg{min-height:1.4em;color:var(--mut);font-size:.9rem;margin:8px 0}
 #msg.err{color:var(--bad)}
-#keys button{flex:0 0 auto;min-width:52px;min-height:40px;padding:4px 10px}
 .hint{color:var(--mut);font-size:.85rem;margin:6px 0 0}
+/* ===== mesa 3D ===== */
+#desk{position:relative;width:100%;aspect-ratio:5/3.2;max-height:90vh;overflow:hidden;border-radius:10px;background:radial-gradient(ellipse at 50% 30%,#2a2f36,#0c0e11 75%);user-select:none;-webkit-user-select:none;touch-action:none}
+#desk:fullscreen{aspect-ratio:auto;max-height:none;height:100%;border-radius:0}
+#stage{position:absolute;left:50%;top:50%;width:1000px;height:640px;transform-origin:center;perspective:1600px}
+#floor{position:absolute;left:0;right:0;bottom:0;height:150px;background:linear-gradient(#15181d,#0a0b0d);transform:rotateX(50deg);transform-origin:bottom;opacity:.9}
+.box{position:absolute;background:linear-gradient(145deg,var(--be1),var(--be2) 60%,var(--be3));border-radius:14px;box-shadow:inset 2px 2px 4px #fff8,inset -4px -6px 10px #0003,18px 24px 34px #000a}
+#monitor{left:40px;top:6px;width:610px;height:470px;transform:rotateY(5deg);transform-origin:right center}
+#monitor:before{content:"";position:absolute;right:-26px;top:14px;width:30px;height:90%;background:linear-gradient(90deg,var(--be3),#7d7763);transform:skewY(-5deg);border-radius:0 40px 40px 0}
+#view{position:absolute;left:45px;top:30px;width:520px;height:390px;background:#000;border-radius:26px/22px;overflow:hidden;box-shadow:inset 0 0 40px #000,inset 0 0 0 6px #111,0 0 0 8px #8a846f,0 2px 0 9px #fff6}
+#screen{position:absolute;inset:0;background:#000;display:flex;align-items:center;justify-content:center}
+#screen canvas{width:100%!important;height:100%!important;object-fit:contain;image-rendering:pixelated}
+#screen div{white-space:pre;font:13px monospace;color:#cfe;position:absolute;left:0;top:0}
+#glass{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 28% 18%,#fff3 0,#fff0 45%),radial-gradient(ellipse at center,#0000 55%,#0008 100%)}
+#flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none}
+#cursor{position:absolute;left:0;top:0;width:18px;height:26px;display:none;pointer-events:none;background:#fff;clip-path:polygon(0 0,0 100%,28% 76%,48% 100%,64% 92%,45% 70%,80% 70%);filter:drop-shadow(0 0 1px #000)}
+#view.on #cursor{display:block}
+.off-anim #screen{animation:crtoff .75s ease-in forwards}
+.off-anim #flash{animation:flash .75s ease-out forwards}
+.on-anim #screen{animation:crton .6s ease-out}
+@keyframes crtoff{0%{transform:scale(1,1);filter:brightness(1)}35%{transform:scale(1,.015);filter:brightness(9)}70%{transform:scale(.03,.015);filter:brightness(9)}100%{transform:scale(0,0);filter:brightness(0)}}
+@keyframes flash{0%{opacity:0}12%{opacity:1}40%{opacity:.5}100%{opacity:0}}
+@keyframes crton{0%{transform:scale(.03,.015);filter:brightness(9)}50%{transform:scale(1,.02);filter:brightness(6)}100%{transform:scale(1,1);filter:brightness(1)}}
+#brand{position:absolute;left:48px;bottom:16px;font:700 15px/1 system-ui;letter-spacing:.15em;color:#6f6a58}
+#led{position:absolute;right:60px;bottom:20px;width:10px;height:10px;border-radius:50%;background:#3a2b12}
+#led.on{background:#ffb54a;box-shadow:0 0 8px #ffb54a}
+#foot{left:200px;top:474px;width:230px;height:26px;border-radius:6px 6px 20px 20px}
+#tower{left:700px;top:90px;width:270px;height:420px;transform:rotateY(-16deg);transform-origin:left center}
+#tower:before{content:"";position:absolute;left:-30px;top:8px;width:34px;height:97%;background:linear-gradient(90deg,#7d7763,var(--be3));transform:skewY(6deg);border-radius:30px 0 0 30px}
+.slot{position:absolute;left:30px;right:30px;border-radius:4px;background:linear-gradient(#8f8977,#b5af9b);box-shadow:inset 0 2px 5px #0006}
+.slot i{position:absolute;left:12px;right:12px;top:50%;height:6px;background:#2a2a2a;border-radius:3px}
+.vent{position:absolute;left:30px;right:30px;bottom:34px;height:80px;background:repeating-linear-gradient(#0000 0 6px,#6d6856 6px 9px)}
+#pwr{position:absolute;left:30px;top:200px;width:54px;height:54px;border-radius:50%;border:0;background:radial-gradient(circle at 35% 30%,#efe9d6,#a8a28d);box-shadow:0 4px 0 #6d6856,0 8px 10px #0006;cursor:pointer}
+#pwr:active{transform:translateY(3px);box-shadow:0 1px 0 #6d6856}
+#pled{position:absolute;left:108px;top:222px;width:12px;height:12px;border-radius:50%;background:#143018}
+#pled.on{background:#5dff7a;box-shadow:0 0 8px #5dff7a}
+#tlabel{position:absolute;right:30px;top:216px;font:700 11px/1 system-ui;letter-spacing:.15em;color:#6f6a58}
+#kb{position:absolute;left:40px;top:510px;width:600px;height:124px;padding:8px;display:flex;flex-direction:column;gap:5px;background:linear-gradient(#cfc8b3,#b3ac96);border-radius:8px;transform:rotateX(14deg);transform-origin:top;box-shadow:0 14px 20px #000a,inset 0 2px 3px #fff8}
+.kr{display:flex;gap:4px;flex:1}
+.k{flex:var(--w,1);min-width:0;border:0;padding:0;border-radius:4px;background:linear-gradient(#f1ecdc,#d8d2be);color:#4a4636;font:600 11px system-ui;box-shadow:0 3px 0 #8d8672,0 4px 4px #0004;touch-action:none}
+.k.d,.k.m.l{transform:translateY(3px);box-shadow:0 0 0 #8d8672;background:#cbc5b0}
+#fs{position:absolute;right:10px;top:10px;width:44px;height:44px;border-radius:8px;border:1px solid #fff3;background:#0007;color:#fff;font-size:20px;cursor:pointer}
 </style>
 </head>
 <body>
 <main>
 <h1>KwnaVM Web</h1>
-<div id="screen"><div></div><canvas></canvas></div>
+<div id="desk">
+ <div id="stage">
+  <div id="floor"></div>
+  <div class="box" id="monitor">
+    <div id="view"><div id="screen"><div></div><canvas></canvas></div><div id="glass"></div><div id="flash"></div><i id="cursor"></i></div>
+    <span id="brand">KWNAVM</span><span id="led"></span>
+  </div>
+  <div class="box" id="foot"></div>
+  <div class="box" id="tower">
+    <div class="slot" style="top:26px;height:34px"><i></i></div>
+    <div class="slot" style="top:80px;height:22px"><i style="height:3px"></i></div>
+    <button id="pwr" aria-label="Ligar ou desligar"></button><span id="pled"></span><span id="tlabel">KWNAVM</span>
+    <div class="vent"></div>
+  </div>
+  <div id="kb"></div>
+ </div>
+ <button id="fs" aria-label="Tela cheia">⛶</button>
+</div>
 <div id="msg" role="status"></div>
 
 <section id="setup">
   <h2>Configuração</h2>
   <label for="iso">Imagem de boot (ISO, IMG ou disquete)</label>
   <input type="file" id="iso" accept=".iso,.img,.ima,.flp,.bin">
-  <p class="hint">O arquivo fica no seu aparelho e não é enviado para lugar nenhum. Só funcionam sistemas de 32 bits (x86).</p>
-
+  <p class="hint">O arquivo fica no seu aparelho. Só funcionam sistemas de 32 bits (x86). Depois de escolher, ligue pelo botão redondo do gabinete ou em "Ligar".</p>
   <label for="ram">Memória RAM: <output id="ramv">256 MB</output></label>
-  <input type="range" id="ram" min="16" max="1024" step="16" value="256">
-
+  <input type="range" id="ram" min="16" max="4096" step="16" value="256">
+  <p class="hint">Acima de 1–2 GB o navegador do celular costuma recusar.</p>
   <label for="vram">Memória de vídeo</label>
   <select id="vram"><option value="2">2 MB</option><option value="8" selected>8 MB</option><option value="16">16 MB</option><option value="32">32 MB</option></select>
-
-  <label for="disk">Disco rígido virtual: <output id="diskv">512 MB</output> (0 = sem disco)</label>
-  <input type="range" id="disk" min="0" max="2048" step="64" value="512">
-
+  <label for="disk">Disco rígido virtual: <output id="diskv">512 MB</output></label>
+  <input type="range" id="disk" min="0" max="16384" step="64" value="512">
+  <p class="hint">O disco ocupa memória real. Se o aparelho não suportar o tamanho, o site usa o maior que couber e avisa.</p>
   <label for="hd">Ou carregar um disco salvo antes (opcional)</label>
   <input type="file" id="hd" accept=".img,.bin,.raw,.hd">
-
-  <div class="row">
-    <button class="go" id="start">Iniciar</button>
-    <button id="stop" disabled>Parar</button>
-  </div>
+  <div class="row"><button class="go" id="start">Ligar</button><button id="stop">Desligar</button></div>
 </section>
-
-<section id="ctl" hidden>
+<section>
   <h2>Controles</h2>
-  <div class="row">
-    <button id="reset">Reiniciar</button>
-    <button id="full">Tela cheia</button>
-    <button id="saveState">Salvar estado</button>
-    <button id="loadState">Restaurar estado</button>
-    <button id="saveDisk">Baixar disco</button>
-  </div>
-  <label for="txt">Digitar texto no sistema</label>
-  <input type="text" id="txt" autocomplete="off" autocapitalize="off" placeholder="Escreva e toque em Enviar">
-  <div class="row"><button id="send">Enviar</button><button id="sendEnter">Enviar + Enter</button></div>
-  <label>Teclas especiais</label>
-  <div class="row" id="keys"></div>
+  <div class="row"><button id="full">Tela cheia</button><button id="reset">Reiniciar</button><button id="saveState">Salvar estado</button><button id="loadState">Restaurar estado</button><button id="saveDisk">Baixar disco</button></div>
+  <p class="hint">No visor: arraste para mover o cursor, toque para clicar, segure para clique direito.</p>
 </section>
 </main>
 
 <script>
-const $ = id => document.getElementById(id);
-const CDN = "https://cdn.jsdelivr.net/npm/v86@latest/build/";
-const BIOS_CDN = "https://cdn.jsdelivr.net/gh/copy/v86@master/bios/";
-let emu = null, diskBuf = null, savedState = null;
+const $=id=>document.getElementById(id), sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const CDN="https://cdn.jsdelivr.net/npm/v86@latest/build/", BIOS_CDN="https://cdn.jsdelivr.net/gh/copy/v86@master/bios/";
+let emu=null,on=false,busy=false,diskBuf=null,savedState=null,S=1;
+const msg=(t,e)=>{$("msg").textContent=t;$("msg").className=e?"err":""};
+const mb=n=>n>=1024?(n/1024)+" GB":n+" MB";
+$("ram").oninput=e=>$("ramv").textContent=mb(+e.target.value);
+$("disk").oninput=e=>$("diskv").textContent=+e.target.value?mb(+e.target.value):"nenhum";
 
-function msg(t, err){ const m=$("msg"); m.textContent=t; m.className=err?"err":""; }
-const mb = n => n >= 1024 ? (n/1024)+" GB" : n+" MB";
-$("ram").oninput = e => $("ramv").textContent = mb(+e.target.value);
-$("disk").oninput = e => $("diskv").textContent = +e.target.value ? mb(+e.target.value) : "nenhum";
+/* ---- escala e tela cheia ---- */
+function fit(){const d=$("desk");S=Math.min(d.clientWidth/1000,d.clientHeight/640);$("stage").style.transform=`translate(-50%,-50%) scale(${S})`}
+addEventListener("resize",fit);document.addEventListener("fullscreenchange",fit);fit();
+async function full(){const d=$("desk");try{await(d.requestFullscreen||d.webkitRequestFullscreen).call(d);screen.orientation&&screen.orientation.lock&&screen.orientation.lock("landscape").catch(()=>{})}catch(e){msg("Tela cheia não disponível neste navegador.",true)}}
+$("fs").onclick=$("full").onclick=full;
 
-async function exists(u){ try{ const r=await fetch(u,{method:"HEAD"}); return r.ok; }catch(e){ return false; } }
-async function pick(local, remote){ return (await exists(local)) ? local : remote; }
-function loadScript(src){ return new Promise((ok,no)=>{ const s=document.createElement("script"); s.src=src; s.onload=ok; s.onerror=()=>no(); document.head.appendChild(s); }); }
-
-async function ensureLib(){
-  if (window.V86) return;
-  msg("Carregando o motor de emulação…");
-  try { await loadScript("lib/libv86.js"); }
-  catch(e){ await loadScript(CDN+"libv86.js"); }
+/* ---- som mecânico ---- */
+let ac;
+function snd(k){ // 0 tecla baixo, 1 tecla sobe, 2 botão power
+  try{ac=ac||new(window.AudioContext||webkitAudioContext)();const t=ac.currentTime,n=ac.sampleRate*(k==2?.09:.04)|0,b=ac.createBuffer(1,n,ac.sampleRate),d=b.getChannelData(0);
+  for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/n,k==1?6:4);
+  const s=ac.createBufferSource();s.buffer=b;const f=ac.createBiquadFilter();f.type="bandpass";f.frequency.value=k==2?900:k?2200:3200;f.Q.value=1.2;
+  const g=ac.createGain();g.gain.value=k==1?.22:.6;s.connect(f).connect(g).connect(ac.destination);s.start(t);
+  const o=ac.createOscillator(),og=ac.createGain();o.frequency.setValueAtTime(k==2?90:170,t);o.frequency.exponentialRampToValueAtTime(50,t+.05);og.gain.setValueAtTime(k==1?.05:.3,t);og.gain.exponentialRampToValueAtTime(.001,t+.06);o.connect(og).connect(ac.destination);o.start(t);o.stop(t+.07);}catch(e){}
 }
 
-async function start(){
-  const iso = $("iso").files[0], hd = $("hd").files[0];
-  if (!iso && !hd) return msg("Escolha uma imagem de boot ou um disco salvo.", true);
-  if (iso && /(x86[_-]?64|amd64|64[-_ ]?bit|[-_.]64\b)/i.test(iso.name) &&
-      !confirm("O nome sugere um sistema de 64 bits. O motor só emula 32 bits e ele provavelmente não vai iniciar. Tentar mesmo assim?")) return;
+/* ---- teclado ---- */
+function key(c,up){if(!emu||!on)return;const b=(c&255)|(up?128:0);emu.keyboard_send_scancodes(c>255?[0xe0,b]:[b])}
+const L=(s,c0,w)=>[...s].map((ch,i)=>[ch,c0+i,w]);
+const rows=[
+ [["Esc",1],...L("1234567890",2),["-",12],["=",13],["⌫",14,2]],
+ [["Tab",15,1.5],...L("qwertyuiop",16),["[",26],["]",27],["↵",28,1.5]],
+ [["Ctrl",29,1.5,1],...L("asdfghjkl",30),[";",39],["'",40]],
+ [["Shift",42,2,1],...L("zxcvbnm",44),[",",51],[".",52],["/",53],["↑",0x148]],
+ [["Alt",56,1.5,1],["Espaço",57,6],["←",0x14b],["↓",0x150],["→",0x14d],["Del",0x153,1.3]]];
+const mods=new Set();
+function release(){mods.forEach(b=>{key(b.c,1);b.classList.remove("l")});mods.clear()}
+rows.forEach(r=>{const row=document.createElement("div");row.className="kr";r.forEach(([n,c,w,m])=>{
+  const b=document.createElement("button");b.className="k"+(m?" m":"");b.textContent=n;b.style.setProperty("--w",w||1);b.c=c;
+  if(m){b.onpointerdown=e=>{e.preventDefault();snd(0);if(mods.has(b)){key(c,1);mods.delete(b);b.classList.remove("l")}else{key(c);mods.add(b);b.classList.add("l")}}}
+  else{b.onpointerdown=e=>{e.preventDefault();b.setPointerCapture(e.pointerId);b.classList.add("d");snd(0);key(c)};
+    const up=e=>{if(!b.classList.contains("d"))return;b.classList.remove("d");snd(1);key(c,1);release()};b.onpointerup=up;b.onpointercancel=up}
+  row.appendChild(b)});$("kb").appendChild(row)});
+document.addEventListener("keydown",e=>{if(on&&!e.repeat)snd(0)});document.addEventListener("keyup",e=>{if(on)snd(1)});
 
-  $("start").disabled = true;
-  try {
-    await ensureLib();
-    const wasm = await pick("lib/v86.wasm", CDN+"v86.wasm");
-    const bios = await pick("bios/seabios.bin", BIOS_CDN+"seabios.bin");
-    const vga  = await pick("bios/vgabios.bin", BIOS_CDN+"vgabios.bin");
+/* ---- cursor / mouse por toque ---- */
+let cx=260,cy=195,pt=null;const cur=$("cursor");
+const place=()=>{cur.style.transform=`translate(${cx}px,${cy}px)`};place();
+const click=(l,r)=>emu&&emu.bus.send("mouse-click",[l,0,r]);
+const v=$("view");v.style.touchAction="none";
+v.addEventListener("pointerdown",e=>{if(e.pointerType=="mouse"||!on)return;e.preventDefault();v.setPointerCapture(e.pointerId);
+  pt={x:e.clientX,y:e.clientY,t:Date.now(),moved:0,timer:setTimeout(()=>{if(pt&&!pt.moved){click(0,1);click(0,0);pt.done=1}},550)}});
+v.addEventListener("pointermove",e=>{if(!pt||e.pointerType=="mouse")return;const dx=e.clientX-pt.x,dy=e.clientY-pt.y;pt.x=e.clientX;pt.y=e.clientY;pt.moved+=Math.abs(dx)+Math.abs(dy);
+  if(pt.moved<6)return;clearTimeout(pt.timer);emu&&emu.bus.send("mouse-delta",[dx*1.6,-dy*1.6]);
+  cx=Math.max(0,Math.min(502,cx+dx/S*1.2));cy=Math.max(0,Math.min(364,cy+dy/S*1.2));place()});
+const end=e=>{if(!pt)return;clearTimeout(pt.timer);if(pt.moved<6&&!pt.done&&Date.now()-pt.t<450){click(1,0);setTimeout(()=>click(0,0),60)}pt=null};
+v.addEventListener("pointerup",end);v.addEventListener("pointercancel",()=>{pt&&clearTimeout(pt.timer);pt=null});
 
-    const o = {
-      wasm_path: wasm,
-      memory_size: +$("ram").value * 1048576,
-      vga_memory_size: +$("vram").value * 1048576,
-      screen_container: $("screen"),
-      bios: {url: bios}, vga_bios: {url: vga},
-      autostart: true
-    };
-    if (iso) {
-      const small = iso.size <= 2949120 && !/\.iso$/i.test(iso.name);
-      if (small) o.fda = {buffer: iso};
-      else { o.cdrom = {buffer: iso}; o.boot_order = 0x213; }
-    }
-    diskBuf = null;
-    if (hd) o.hda = {buffer: hd};
-    else if (+$("disk").value > 0) {
-      try { diskBuf = new ArrayBuffer(+$("disk").value * 1048576); o.hda = {buffer: diskBuf}; }
-      catch(e){ return msg("Sem memória para um disco desse tamanho. Reduza o disco ou a RAM.", true); }
-    }
-    if (emu) { try{ await emu.destroy(); }catch(e){} }
-    msg("Iniciando…");
-    emu = new V86(o);
-    emu.add_listener("emulator-started", () => msg("Em execução. Toque na tela para dar foco."));
-    $("stop").disabled = false; $("ctl").hidden = false;
-    $("screen").scrollIntoView({behavior:"smooth"});
-  } catch(e){
-    console.error(e);
-    msg("Não foi possível iniciar. Verifique a conexão ou reduza a RAM.", true);
-  } finally { $("start").disabled = false; }
+/* ---- motor ---- */
+const exists=async u=>{try{return(await fetch(u,{method:"HEAD"})).ok}catch(e){return false}};
+const pick=async(l,r)=>(await exists(l))?l:r;
+const loadScript=s=>new Promise((ok,no)=>{const e=document.createElement("script");e.src=s;e.onload=ok;e.onerror=no;document.head.appendChild(e)});
+function alloc(m){while(m>=64){try{return[new ArrayBuffer(m*1048576),m]}catch(e){m=Math.floor(m/2/64)*64}}return[null,0]}
+
+async function boot(){
+  const iso=$("iso").files[0],hd=$("hd").files[0];
+  if(!iso&&!hd){msg("Escolha uma imagem de boot ou um disco salvo.",true);return false}
+  if(iso&&/(x86[_-]?64|amd64|64[-_ ]?bit|[-_.]64\b)/i.test(iso.name)&&!confirm("O nome sugere 64 bits. O motor só emula 32 bits e provavelmente não vai iniciar. Tentar mesmo assim?"))return false;
+  try{
+    if(!window.V86){msg("Carregando o motor…");try{await loadScript("lib/libv86.js")}catch(e){await loadScript(CDN+"libv86.js")}}
+    const wasm=await pick("lib/v86.wasm",CDN+"v86.wasm"),bios=await pick("bios/seabios.bin",BIOS_CDN+"seabios.bin"),vga=await pick("bios/vgabios.bin",BIOS_CDN+"vgabios.bin");
+    const o={wasm_path:wasm,memory_size:+$("ram").value*1048576,vga_memory_size:+$("vram").value*1048576,screen_container:$("screen"),bios:{url:bios},vga_bios:{url:vga},autostart:true};
+    if(iso){if(iso.size<=2949120&&!/\.iso$/i.test(iso.name))o.fda={buffer:iso};else{o.cdrom={buffer:iso};o.boot_order=0x213}}
+    diskBuf=null;
+    if(hd)o.hda={buffer:hd};
+    else if(+$("disk").value>0){const want=+$("disk").value,[buf,got]=alloc(want);
+      if(buf){diskBuf=buf;o.hda={buffer:buf};if(got<want)msg("Disco reduzido para "+mb(got)+" (limite do aparelho).",true)}else msg("Sem memória para o disco; iniciando sem disco.",true)}
+    emu=new V86(o);
+    emu.add_listener("emulator-ready",()=>{try{emu.mouse_set_status(true)}catch(e){}});
+    emu.add_listener("emulator-started",()=>{if(!$("msg").className)msg("Em execução.")});
+    return true;
+  }catch(e){console.error(e);msg("Não foi possível iniciar. Verifique a conexão ou reduza a RAM.",true);return false}
 }
-
-async function stop(){
-  if (emu) { try{ await emu.destroy(); }catch(e){} emu = null; }
-  $("stop").disabled = true; $("ctl").hidden = true; msg("Parado.");
+async function powerOn(){
+  if(on||busy)return;busy=true;
+  if(await boot()){on=true;$("led").classList.add("on");$("pled").classList.add("on");$("view").classList.remove("off-anim");$("view").classList.add("on","on-anim");setTimeout(()=>$("view").classList.remove("on-anim"),700);$("desk").scrollIntoView({behavior:"smooth",block:"center"})}
+  busy=false;
 }
-
-function down(name,blob){ const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),5000); }
-
-$("start").onclick = start;
-$("stop").onclick = stop;
-$("reset").onclick = () => emu && emu.restart();
-$("full").onclick = () => { const s=$("screen"); (s.requestFullscreen||s.webkitRequestFullscreen).call(s); };
-$("saveState").onclick = async () => { if(!emu) return; savedState = await emu.save_state(); msg("Estado salvo na memória (some ao fechar a página)."); };
-$("loadState").onclick = async () => { if(emu && savedState){ await emu.restore_state(savedState); msg("Estado restaurado."); } else msg("Nenhum estado salvo ainda.", true); };
-$("saveDisk").onclick = () => diskBuf ? down("disco.img", new Blob([diskBuf])) : msg("Este disco não pode ser baixado.", true);
-
-const send = (enter) => { if(!emu) return; const t=$("txt").value + (enter?"\n":""); if(emu.keyboard_send_text) emu.keyboard_send_text(t); $("txt").value=""; };
-$("send").onclick = () => send(false);
-$("sendEnter").onclick = () => send(true);
-
-// Teclas especiais (scancodes set 1; prefixo 0xE0 = tecla estendida)
-const K = {Esc:[0x01],Tab:[0x0f],Enter:[0x1c],Espaço:[0x39],Apagar:[0x0e],"↑":[0xe0,0x48],"↓":[0xe0,0x50],"←":[0xe0,0x4b],"→":[0xe0,0x4d],Del:[0xe0,0x53],F2:[0x3c],F10:[0x44],F12:[0x58]};
-function tap(codes){ const ext=codes.length>1?[0xe0]:[]; const c=codes[codes.length-1];
-  return [...ext,c,...ext,c|0x80]; }
-const kb = $("keys");
-Object.entries(K).forEach(([n,c])=>{ const b=document.createElement("button"); b.textContent=n; b.onclick=()=>emu&&emu.keyboard_send_scancodes(tap(c)); kb.appendChild(b); });
-const cad=document.createElement("button"); cad.textContent="Ctrl+Alt+Del";
-cad.onclick=()=>emu&&emu.keyboard_send_scancodes([0x1d,0x38,0xe0,0x53,0xe0,0xd3,0xb8,0x9d]); kb.appendChild(cad);
-
-if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});
+async function powerOff(){
+  if(!on||busy)return;busy=true;on=false;$("led").classList.remove("on");$("pled").classList.remove("on");
+  const vw=$("view");vw.classList.add("off-anim");await sleep(780);vw.classList.remove("on");
+  if(emu){try{await emu.destroy()}catch(e){}emu=null}
+  msg("Desligado.");busy=false;
+}
+$("pwr").onclick=()=>{snd(2);on?powerOff():powerOn()};
+$("start").onclick=powerOn;$("stop").onclick=powerOff;
+$("reset").onclick=()=>emu&&emu.restart();
+$("saveState").onclick=async()=>{if(emu){savedState=await emu.save_state();msg("Estado salvo na memória (some ao fechar a página).")}};
+$("loadState").onclick=async()=>{if(emu&&savedState){await emu.restore_state(savedState);msg("Estado restaurado.")}else msg("Nenhum estado salvo ainda.",true)};
+$("saveDisk").onclick=()=>{if(!diskBuf)return msg("Este disco não pode ser baixado.",true);const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([diskBuf]));a.download="disco.img";a.click()};
+if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
 </script>
 </body>
 </html>
