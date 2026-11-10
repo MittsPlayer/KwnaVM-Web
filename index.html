@@ -36,8 +36,9 @@ output{color:var(--ac);font-weight:600}
 #view{position:absolute;left:45px;top:30px;width:520px;height:390px;background:#000;border-radius:26px/22px;overflow:hidden;box-shadow:inset 0 0 40px #000,inset 0 0 0 6px #111,0 0 0 8px #8a846f,0 2px 0 9px #fff6}
 #screen{position:absolute;inset:0;background:#000;display:flex;align-items:center;justify-content:center}
 #screen canvas{width:100%!important;height:100%!important;object-fit:contain;image-rendering:pixelated}
-#screen div{white-space:pre;font:13px monospace;color:#cfe;position:absolute;left:0;top:0}
+#screen>div:first-child{white-space:pre;font:10px/12px monospace;color:#cfe;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
 #glass{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 28% 18%,#fff3 0,#fff0 45%),radial-gradient(ellipse at center,#0000 55%,#0008 100%)}
+#osd{position:absolute;left:12px;right:12px;bottom:10px;font:11px/1.3 monospace;color:#9fffb0;text-shadow:0 0 4px #0f0;pointer-events:none;white-space:pre-wrap}
 #flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none}
 #cursor{position:absolute;left:0;top:0;width:18px;height:26px;display:none;pointer-events:none;background:#fff;clip-path:polygon(0 0,0 100%,28% 76%,48% 100%,64% 92%,45% 70%,80% 70%);filter:drop-shadow(0 0 1px #000)}
 #view.on #cursor{display:block}
@@ -75,7 +76,7 @@ output{color:var(--ac);font-weight:600}
  <div id="stage">
   <div id="floor"></div>
   <div class="box" id="monitor">
-    <div id="view"><div id="screen"><div></div><canvas></canvas></div><div id="glass"></div><div id="flash"></div><i id="cursor"></i></div>
+    <div id="view"><div id="screen"><div></div><canvas></canvas></div><div id="glass"></div><div id="osd"></div><div id="flash"></div><i id="cursor"></i></div>
     <span id="brand">KWNAVM</span><span id="led"></span>
   </div>
   <div class="box" id="foot"></div>
@@ -119,7 +120,8 @@ output{color:var(--ac);font-weight:600}
 const $=id=>document.getElementById(id), sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const CDN="https://cdn.jsdelivr.net/npm/v86@latest/build/", BIOS_CDN="https://cdn.jsdelivr.net/gh/copy/v86@master/bios/";
 let emu=null,on=false,busy=false,diskBuf=null,savedState=null,S=1;
-const msg=(t,e)=>{$("msg").textContent=t;$("msg").className=e?"err":""};
+const osd=t=>{$("osd").textContent=t};
+const msg=(t,e)=>{$("msg").textContent=t;$("msg").className=e?"err":"";if(e)osd(t)};
 const mb=n=>n>=1024?(n/1024)+" GB":n+" MB";
 $("ram").oninput=e=>$("ramv").textContent=mb(+e.target.value);
 $("disk").oninput=e=>$("diskv").textContent=+e.target.value?mb(+e.target.value):"nenhum";
@@ -183,7 +185,8 @@ async function boot(){
   if(!iso&&!hd){msg("Escolha uma imagem de boot ou um disco salvo.",true);return false}
   if(iso&&/(x86[_-]?64|amd64|64[-_ ]?bit|[-_.]64\b)/i.test(iso.name)&&!confirm("O nome sugere 64 bits. O motor só emula 32 bits e provavelmente não vai iniciar. Tentar mesmo assim?"))return false;
   try{
-    if(!window.V86){msg("Carregando o motor…");try{await loadScript("lib/libv86.js")}catch(e){await loadScript(CDN+"libv86.js")}}
+    if(!window.V86){msg("Carregando o motor…");osd("Carregando o motor…");try{await loadScript("lib/libv86.js")}catch(e){await loadScript(CDN+"libv86.js")}}
+    if(!window.V86)throw new Error("libv86 não definiu V86");
     const wasm=await pick("lib/v86.wasm",CDN+"v86.wasm"),bios=await pick("bios/seabios.bin",BIOS_CDN+"seabios.bin"),vga=await pick("bios/vgabios.bin",BIOS_CDN+"vgabios.bin");
     const o={wasm_path:wasm,memory_size:+$("ram").value*1048576,vga_memory_size:+$("vram").value*1048576,screen_container:$("screen"),bios:{url:bios},vga_bios:{url:vga},autostart:true};
     if(iso){if(iso.size<=2949120&&!/\.iso$/i.test(iso.name))o.fda={buffer:iso};else{o.cdrom={buffer:iso};o.boot_order=0x213}}
@@ -191,7 +194,11 @@ async function boot(){
     if(hd)o.hda={buffer:hd};
     else if(+$("disk").value>0){const want=+$("disk").value,[buf,got]=alloc(want);
       if(buf){diskBuf=buf;o.hda={buffer:buf};if(got<want)msg("Disco reduzido para "+mb(got)+" (limite do aparelho).",true)}else msg("Sem memória para o disco; iniciando sem disco.",true)}
+    osd("Iniciando BIOS e imagem…");
     emu=new V86(o);
+    emu.add_listener("download-progress",e=>osd("Baixando "+(e.file_name||"")+" "+(e.total?Math.round(e.loaded/e.total*100)+"%":"")));
+    emu.add_listener("download-error",e=>msg("Falha ao baixar "+(e.file_name||"arquivo")+". Verifique a conexão ou coloque os arquivos em lib/ e bios/.",true));
+    emu.add_listener("screen-set-size",()=>osd(""));
     emu.add_listener("emulator-ready",()=>{try{emu.mouse_set_status(true)}catch(e){}});
     emu.add_listener("emulator-started",()=>{if(!$("msg").className)msg("Em execução.")});
     return true;
